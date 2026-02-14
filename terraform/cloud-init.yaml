@@ -1,0 +1,42 @@
+#cloud-config
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - git
+  - python3
+  - python3-pip
+
+runcmd:
+  # Install Docker
+  - curl -fsSL https://get.docker.com | sh
+  - systemctl enable docker
+  - systemctl start docker
+
+  # Install Docker Compose plugin
+  - mkdir -p /usr/local/lib/docker/cli-plugins
+  - curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" -o /usr/local/lib/docker/cli-plugins/docker-compose
+  - chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+  # Create app directory
+  - mkdir -p /opt/blobfront
+
+  # NOTE: After terraform apply, copy your project files to the VM:
+  #   scp -r ./* blobfront@<PUBLIC_IP>:/opt/blobfront/
+  #   ssh blobfront@<PUBLIC_IP> "cd /opt/blobfront && docker compose up -d --build"
+  #
+  # Or clone from your git repo:
+  #   git clone https://github.com/YOUR_USER/blobfront.git /opt/blobfront
+
+  # Set permissions
+  - chown -R 1000:1000 /opt/blobfront
+
+  # Enable automatic security updates
+  - apt-get install -y unattended-upgrades
+  - dpkg-reconfigure -plow unattended-upgrades

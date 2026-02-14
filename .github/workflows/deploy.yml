@@ -1,0 +1,33 @@
+# Optional CI/CD pipeline to deploy config changes to your BlobFront VM.
+# Set these GitHub Actions secrets:
+#   VM_HOST       - Public IP of your BlobFront VM
+#   VM_USER       - SSH username (default: blobfront)
+#   VM_SSH_KEY    - Private SSH key for the VM
+
+name: Deploy BlobFront
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "config.yaml"
+      - "Dockerfile"
+      - "scripts/**"
+      - "docker-compose.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cd /opt/blobfront
+            git pull origin main
+            docker compose up -d --build

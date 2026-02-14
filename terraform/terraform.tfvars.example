@@ -1,0 +1,10 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+resource_group_name = "rg-blobfront"
+location            = "uksouth"
+vm_size             = "Standard_B1s"
+admin_username      = "blobfront"
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+# Restrict SSH to your IP for security (e.g., "203.0.113.50/32")
+allowed_ssh_cidr = "0.0.0.0/0"

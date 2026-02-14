@@ -1,0 +1,20 @@
+services:
+  caddy:
+    build: .
+    container_name: blobfront
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config.yaml:/etc/blobfront/config.yaml:ro
+      - caddy_data:/data       # TLS certificates
+      - caddy_config:/config   # Caddy runtime config
+      - caddy_logs:/var/log/caddy
+    environment:
+      - CONFIG_PATH=/etc/blobfront/config.yaml
+
+volumes:
+  caddy_data:
+  caddy_config:
+  caddy_logs:

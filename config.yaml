@@ -1,0 +1,27 @@
+# BlobFront Configuration
+# Maps custom domains to Azure Blob Storage static website endpoints.
+
+global:
+  # Email for Let's Encrypt certificate notifications
+  email: you@example.com
+
+  # Maximum disk space for cached responses
+  cache_max_size: 512MB
+
+sites:
+  # Example: Main website
+  - domain: example.com
+    backend: https://myaccount.z6.web.core.windows.net
+    cache_ttl: 3600        # 1 hour
+    cache_stale: 86400     # Serve stale for 24h if backend down
+    redirect_www: true
+    headers:
+      X-Frame-Options: DENY
+      X-Content-Type-Options: nosniff
+      Referrer-Policy: strict-origin-when-cross-origin
+
+  # Example: Blog on a different storage account
+  # - domain: blog.example.com
+  #   backend: https://myblogaccount.z6.web.core.windows.net
+  #   cache_ttl: 7200
+  #   cache_stale: 43200
