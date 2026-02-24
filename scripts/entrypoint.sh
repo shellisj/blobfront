@@ -8,6 +8,7 @@ echo "BlobFront starting..."
 echo "Config: ${CONFIG_PATH}"
 
 # Generate Caddyfile from config
+mkdir -p "$(dirname "${CADDYFILE_PATH}")"
 python3 /opt/blobfront/scripts/generate_caddyfile.py "${CONFIG_PATH}" "${CADDYFILE_PATH}"
 
 # Create log directory

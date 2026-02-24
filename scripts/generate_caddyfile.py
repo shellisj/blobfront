@@ -60,7 +60,6 @@ def generate_caddyfile(config_path: str = "config.yaml", output_path: str = "Cad
         lines.append(f"\tcache {{")
         lines.append(f"\t\tttl {cache_ttl}s")
         lines.append(f"\t\tstale {cache_stale}s")
-        lines.append(f"\t\tmax_size {cache_max_size}")
         lines.append(f"\t}}")
         lines.append("")
 
