@@ -32,10 +32,12 @@ Key components and how they fit together:
 - **`config.yaml`** — the single source of truth. Maps custom domains to blob backends and sets
   per-site cache TTLs, custom response headers, and www-redirect. This is the only file users
   normally edit. It is mounted **read-only** into the container at `/etc/blobfront/config.yaml`.
-- **`scripts/generate_caddyfile.py`** — reads `config.yaml` (via `CONFIG_PATH`) and emits a
-  Caddyfile (to `CADDYFILE_PATH`). `build_global()` produces the global block (Let's Encrypt
-  email + cache-handler config); `build_site()` produces one site block per entry in `sites`,
-  wiring up `reverse_proxy`, per-site `cache`, header rewriting, logging, and error handling.
+- **`scripts/generate_caddyfile.py`** — a single `generate_caddyfile(config_path, output_path)`
+  function (CLI args, defaulting to `config.yaml`/`Caddyfile`). It builds the Caddyfile as a flat
+  `lines` list: first a global options block (Let's Encrypt `email` + `order cache before rewrite`,
+  which makes the cache-handler plugin run early), then one block per entry in `sites` wiring up
+  `cache` (ttl/stale), `reverse_proxy`, header rewriting, logging, and `handle_errors`. It exits
+  non-zero if the config is missing or `sites` is empty.
 - **`scripts/entrypoint.sh`** — the container entrypoint. Runs the generator, prints the
   generated Caddyfile (for debugging), creates `/var/log/caddy`, runs `caddy validate`, then
   `exec caddy run`. **The Caddyfile is regenerated on every container start** — this is the
@@ -93,13 +95,14 @@ building the image (`docker compose build`) since the entrypoint runs the genera
   the host won't write there — prefer `docker compose restart` (regenerates on start) or
   `docker compose exec caddy caddy reload ...` after the in-container file is regenerated.
 - **`global.cache_max_size` in `config.yaml` is currently not wired into the generated
-  Caddyfile.** `build_global()` reads it but does not emit a corresponding directive. If you
-  touch cache behavior, this is the place to address it.
+  Caddyfile.** `generate_caddyfile()` reads it into a local but never emits a corresponding
+  directive. If you touch cache sizing, this is the gap to address.
 - **Per-site behavior is generated, not hand-written.** To change how every site is rendered
-  (headers stripped, log rotation, error handler, redirect format), edit `build_site()` rather
-  than any Caddyfile — Caddyfiles in this repo are always machine output.
-- **Azure response headers (`x-ms-request-id`, `x-ms-version`) and `Server` are stripped** from
-  responses by default in `build_site()`.
+  (headers stripped, log rotation, error handler, redirect format), edit the site loop in
+  `generate_caddyfile()` — Caddyfiles in this repo are always machine output.
+- **Azure response headers (`x-ms-request-id`, `x-ms-version`, `x-ms-lease-status`,
+  `x-ms-blob-type`) are always stripped** via `header_down`, and `Server` is stripped only when a
+  site defines custom `headers` (it lives inside the optional `header` block).
 - **Terraform defaults are permissive for convenience:** `allowed_ssh_cidr` defaults to
   `0.0.0.0/0` — restrict it for real deployments. `cloud-init.yaml` clones from a placeholder
   `https://github.com/YOUR_USERNAME/blobfront.git`; update it (or the fork URL) before relying on
