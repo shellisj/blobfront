@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 BlobFront is a self-hosted, open-source alternative to Azure Front Door / Azure CDN for
 serving Azure Blob Storage **static website** endpoints over custom domains with automatic
 HTTPS and response caching. It is **deployment infrastructure**, not an application: there is
-no compiled code, no package manifest (`package.json`/`pyproject.toml`), and no test suite.
+no compiled code and no package manifest (`package.json`/`pyproject.toml`). The only logic is the
+Python Caddyfile generator, which has a `pytest` suite under `tests/`.
 The "product" is a Docker image running a custom Caddy build, configured from a single YAML file.
 
 ## Architecture
@@ -61,9 +62,19 @@ Key components and how they fit together:
 
 ## Commands
 
-There is no build/lint/test toolchain. Work with the Docker and Terraform lifecycle:
-
 ```bash
+# Unit-test the generator (the only real logic). Needs pytest + pyyaml.
+pip install -r requirements-dev.txt
+python3 -m pytest -q tests/
+
+# End-to-end Caddyfile validation must use the CUSTOM-built binary, because the
+# `cache` directive is unknown to stock Caddy. Build the image, then generate +
+# validate inside it (this is what CI does — see .github/workflows/ci.yml):
+docker build -t blobfront:ci .
+docker run --rm --entrypoint /bin/sh blobfront:ci -c \
+  'python3 /opt/blobfront/scripts/generate_caddyfile.py /etc/blobfront/config.yaml /tmp/Caddyfile \
+   && caddy validate --config /tmp/Caddyfile'
+
 # Run locally for testing (uses internal/self-signed certs; no public DNS needed)
 docker compose up --build
 
@@ -87,8 +98,13 @@ terraform apply
 cd /opt/blobfront && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
-The generator depends only on `pyyaml`. Validating output end-to-end realistically means
-building the image (`docker compose build`) since the entrypoint runs the generator + validate.
+The generator depends only on `pyyaml`. `caddy validate` on stock Caddy will **reject** the
+generated Caddyfile (it doesn't know the `cache` directive) — always validate against the image's
+custom binary, as the CI `validate` job and the entrypoint do.
+
+CI: `.github/workflows/ci.yml` runs the `pytest` suite and the build-and-validate step on every
+push and pull request; `.github/workflows/deploy.yml` builds/ships the image only on push to
+`main`.
 
 ## Conventions and gotchas
 

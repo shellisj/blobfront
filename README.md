@@ -126,6 +126,8 @@ blobfront/
 ├── scripts/
 │   ├── generate_caddyfile.py  # Converts config.yaml → Caddyfile
 │   └── entrypoint.sh         # Docker entrypoint
+├── tests/
+│   └── test_generate_caddyfile.py  # pytest suite for the generator
 ├── terraform/
 │   ├── main.tf              # Azure VM + networking
 │   ├── variables.tf         # Input variables
@@ -134,8 +136,32 @@ blobfront/
 │   └── terraform.tfvars.example
 └── .github/
     └── workflows/
-        └── deploy.yml       # Optional CI/CD pipeline
+        ├── ci.yml          # Tests + Caddyfile validation (push/PR)
+        └── deploy.yml      # Build image → GHCR → deploy to VM (push to main)
 ```
+
+## Development
+
+The Caddyfile generator is the only piece of logic, and it has a test suite:
+
+```bash
+pip install -r requirements-dev.txt
+python3 -m pytest tests/
+```
+
+Validating that Caddy actually accepts the generated config requires the
+**custom-built binary** (stock `caddy validate` doesn't know the `cache`
+directive), so do it inside the image:
+
+```bash
+docker build -t blobfront:ci .
+docker run --rm --entrypoint /bin/sh blobfront:ci -c \
+  'python3 /opt/blobfront/scripts/generate_caddyfile.py /etc/blobfront/config.yaml /tmp/Caddyfile \
+   && caddy validate --config /tmp/Caddyfile'
+```
+
+Both steps run automatically in CI (`.github/workflows/ci.yml`) on every push
+and pull request.
 
 ## Advanced Usage
 
