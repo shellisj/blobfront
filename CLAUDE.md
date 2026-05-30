@@ -45,14 +45,19 @@ Key components and how they fit together:
 - **`Dockerfile`** — two stages: (1) `xcaddy build` a custom Caddy binary with the
   `github.com/caddyserver/cache-handler` plugin; (2) `python:3.12-slim` runtime with `pyyaml`,
   the custom Caddy binary, and the scripts. Defines `CONFIG_PATH` and `CADDYFILE_PATH`.
-- **`docker-compose.yml`** — single `caddy` service. Persists Let's Encrypt certs in the
-  `caddy_data` volume; mounts `config.yaml` read-only; exposes 80/443.
+- **`docker-compose.yml`** — single `caddy` service. Declares both `image:`
+  (`ghcr.io/<owner>/blobfront`, overridable via the `IMAGE` env var) and `build: .`, so the VM
+  *pulls* the prebuilt image while local `docker compose up --build` still builds from source.
+  Persists Let's Encrypt certs in the `caddy_data` volume; mounts `config.yaml` read-only;
+  exposes 80/443.
 - **`terraform/`** — Azure IaC that provisions a single cheap Linux VM (Ubuntu 24.04,
   `Standard_B1s` by default) plus networking/NSG. `cloud-init.yaml` installs Docker and clones
   the repo to `/opt/blobfront`.
-- **`.github/workflows/deploy.yml`** — optional CD. On push to `main` touching `config.yaml`,
-  `Dockerfile`, `scripts/**`, or `docker-compose.yml`, it SSHes into the VM, pulls, rebuilds,
-  and reloads Caddy.
+- **`.github/workflows/deploy.yml`** — CI/CD. On push to `main` touching the build inputs, a
+  `build` job compiles the image once and pushes it to GHCR
+  (`ghcr.io/<owner>/blobfront`), then a `deploy` job SSHes into the VM and runs `git pull` +
+  `docker compose pull` + `docker compose up -d`. **The VM never compiles Caddy** — it only
+  pulls the prebuilt image, which is what allows the smallest/cheapest VM SKUs.
 
 ## Commands
 
@@ -94,9 +99,12 @@ building the image (`docker compose build`) since the entrypoint runs the genera
   container. The README's "on VM" snippet that runs `python3 scripts/generate_caddyfile.py` on
   the host won't write there — prefer `docker compose restart` (regenerates on start) or
   `docker compose exec caddy caddy reload ...` after the in-container file is regenerated.
-- **`global.cache_max_size` in `config.yaml` is currently not wired into the generated
-  Caddyfile.** `generate_caddyfile()` reads it into a local but never emits a corresponding
-  directive. If you touch cache sizing, this is the gap to address.
+- **Caching is activated per-site**, not globally: the `order cache before rewrite` global line
+  plus each site's `cache { ttl/stale }` block is what enables the cache-handler plugin (a global
+  `cache {}` block is optional). `global.cache_ttl`/`cache_stale` set defaults for sites that omit
+  them. There is deliberately **no max-size-in-MB knob** — the plugin's default store is bounded
+  by entry count, not bytes, so don't add a `cache_max_size`-style directive without wiring a real
+  storage backend (`nuts`/`badger`/`redis`) and validating with `caddy validate` first.
 - **Per-site behavior is generated, not hand-written.** To change how every site is rendered
   (headers stripped, log rotation, error handler, redirect format), edit the site loop in
   `generate_caddyfile()` — Caddyfiles in this repo are always machine output.

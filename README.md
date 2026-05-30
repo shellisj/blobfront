@@ -90,7 +90,31 @@ Caddy will automatically obtain and renew Let's Encrypt certificates once DNS re
 |---|---|
 | Azure Front Door | $35+ (base) + per-request fees |
 | Azure CDN (Standard) | $10–25+ |
-| **BlobFront on B1s VM** | **~$4** |
+| **BlobFront on B1s VM (pay-as-you-go)** | **~$13 / £11–15** |
+| **BlobFront on B1s VM (1-yr reservation)** | **~$8 / £7–9** |
+
+> **Reality check.** A single always-on Azure VM with a public IP has a hard
+> floor. At pay-as-you-go rates in `uksouth`, the bill breaks down roughly as:
+>
+> | Item | ~Cost/mo (ex-VAT) |
+> |---|---|
+> | `Standard_B1s` compute | ~$7.60 |
+> | Standard static public IP | ~$3.65 |
+> | 30 GB Standard HDD OS disk | ~$1.55 |
+> | Egress (first 100 GB free) | ~$0–1 |
+> | **Total** | **~$13** |
+>
+> Add UK VAT (20%) and you land at **£11–15/month** — which is why the bill is
+> higher than a naive "$4" estimate. The public IP is now a paid resource and
+> can't be avoided for a single reachable VM.
+>
+> **To get the bill down:**
+> - **Buy a 1-year VM reservation or Azure Savings Plan** (~40% off compute) —
+>   the biggest safe win. Purchased in the Azure portal, not via this Terraform.
+> - **Use a smaller VM** (e.g. `B1ls`). This only works because the image is now
+>   **pre-built in CI** (see below) — the VM no longer compiles Caddy, so it
+>   needs far less RAM. Set `vm_size` in `terraform.tfvars`.
+> - **Spot VM** is ~75% cheaper but can be evicted with 30s notice (downtime).
 
 ## Project Structure
 
@@ -140,19 +164,39 @@ sites:
 
 BlobFront exposes a health endpoint at `http://localhost:2019/config/` (Caddy admin API, bound to localhost only).
 
+## Prebuilt image (CI/CD)
+
+The custom Caddy binary is compiled **once in GitHub Actions** and pushed to
+GitHub Container Registry, instead of being built on the VM. This means the VM
+only *pulls* a ready image — so it needs far less RAM and can run on the
+cheapest SKUs.
+
+- Workflow: `.github/workflows/deploy.yml` (builds on push to `main`, then
+  pulls + restarts on the VM over SSH).
+- Required secrets: `VM_HOST`, `VM_USER`, `VM_SSH_KEY`.
+- One-time: after the first build, set the GHCR package visibility to **Public**
+  so the VM can pull without credentials (or add `docker login ghcr.io` to the
+  deploy step).
+- If you fork, set the `IMAGE` env var (or edit the default in
+  `docker-compose.yml`) to point at your own `ghcr.io/<owner>/blobfront`.
+
 ## Updating Configuration
 
-After editing `config.yaml`, regenerate the Caddyfile and reload:
+After editing `config.yaml`:
 
 ```bash
-# Local
+# Local — entrypoint regenerates the Caddyfile on start
 docker compose restart
 
-# On VM (via SSH)
+# On the VM (via SSH) — config.yaml is mounted, so just restart to regenerate
 cd /opt/blobfront
-python3 scripts/generate_caddyfile.py
-docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+git pull
+docker compose up -d
 ```
+
+> The Caddyfile lives **inside** the container at `/etc/caddy/Caddyfile` and is
+> regenerated from `config.yaml` on every start, so running the generator on the
+> host has no effect — restart the container instead.
 
 ## License
 

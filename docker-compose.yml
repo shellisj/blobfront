@@ -1,5 +1,9 @@
 services:
   caddy:
+    # On the VM, `docker compose pull` fetches this prebuilt image (built in CI).
+    # Locally, `docker compose up --build` still builds from the Dockerfile and
+    # tags the result with this name. Override the owner via IMAGE if you fork.
+    image: ${IMAGE:-ghcr.io/shellisj/blobfront:latest}
     build: .
     container_name: blobfront
     restart: unless-stopped

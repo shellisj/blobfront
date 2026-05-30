@@ -5,8 +5,11 @@ global:
   # Email for Let's Encrypt certificate notifications
   email: you@example.com
 
-  # Maximum disk space for cached responses
-  cache_max_size: 512MB
+  # Default cache TTLs applied to any site that doesn't set its own.
+  # NOTE: the cache-handler plugin's default store is bounded by entry count,
+  # not bytes, so there is intentionally no "max size in MB" knob here.
+  cache_ttl: 3600        # 1 hour
+  cache_stale: 86400     # Serve stale for 24h if backend is down
 
 sites:
   # Example: Main website
