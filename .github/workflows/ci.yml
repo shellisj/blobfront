@@ -1,0 +1,55 @@
+# Continuous integration: unit tests + end-to-end Caddyfile validation.
+# Runs on every push and pull request. Independent of deploy.yml (which only
+# builds/ships the image on push to main).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest pyyaml
+
+      - name: Run tests
+        run: python -m pytest -q tests/
+
+  validate:
+    name: Validate generated Caddyfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build the image, which bakes in the custom Caddy binary (with the
+      # cache-handler plugin) and runs the generator. Stock `caddy validate`
+      # can't be used here: it doesn't know the `cache` directive.
+      - name: Build image
+        run: docker build -t blobfront:ci .
+
+      # The entrypoint generates the Caddyfile from the bundled example config
+      # and runs `caddy validate` before starting. Override the entrypoint to
+      # do exactly the generate + validate steps and then exit, so a bad
+      # Caddyfile fails the build.
+      - name: Generate and validate Caddyfile
+        run: |
+          docker run --rm --entrypoint /bin/sh blobfront:ci -c '
+            set -e
+            python3 /opt/blobfront/scripts/generate_caddyfile.py \
+              /etc/blobfront/config.yaml /tmp/Caddyfile
+            echo "--- generated Caddyfile ---"
+            cat /tmp/Caddyfile
+            echo "--- validating ---"
+            caddy validate --config /tmp/Caddyfile
+          '

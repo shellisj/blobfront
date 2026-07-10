@@ -26,7 +26,8 @@ def generate_caddyfile(config_path: str = "config.yaml", output_path: str = "Cad
         sys.exit(1)
 
     email = global_cfg.get("email", "")
-    cache_max_size = global_cfg.get("cache_max_size", "512MB")
+    default_cache_ttl = global_cfg.get("cache_ttl", 3600)
+    default_cache_stale = global_cfg.get("cache_stale", 86400)
 
     lines = []
 
@@ -41,8 +42,8 @@ def generate_caddyfile(config_path: str = "config.yaml", output_path: str = "Cad
     for site in sites:
         domain = site["domain"]
         backend = site["backend"].rstrip("/")
-        cache_ttl = site.get("cache_ttl", 3600)
-        cache_stale = site.get("cache_stale", 86400)
+        cache_ttl = site.get("cache_ttl", default_cache_ttl)
+        cache_stale = site.get("cache_stale", default_cache_stale)
         headers = site.get("headers", {})
         redirect_www = site.get("redirect_www", False)
 
