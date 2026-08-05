@@ -90,8 +90,9 @@ Caddy will automatically obtain and renew Let's Encrypt certificates once DNS re
 |---|---|
 | Azure Front Door | $35+ (base) + per-request fees |
 | Azure CDN (Standard) | $10–25+ |
+| **BlobFront on B1ls VM (pay-as-you-go, default)** | **~$9 / £8–10** |
 | **BlobFront on B1s VM (pay-as-you-go)** | **~$13 / £11–15** |
-| **BlobFront on B1s VM (1-yr reservation)** | **~$8 / £7–9** |
+| **BlobFront on B1ls VM (1-yr reservation)** | **~$6 / £5–7** |
 
 > **Reality check.** A single always-on Azure VM with a public IP has a hard
 > floor. At pay-as-you-go rates in `uksouth`, the bill breaks down roughly as:
@@ -109,11 +110,14 @@ Caddy will automatically obtain and renew Let's Encrypt certificates once DNS re
 > can't be avoided for a single reachable VM.
 >
 > **To get the bill down:**
+> - **Use a smaller VM.** The Terraform default is now `Standard_B1ls`
+>   (0.5 GiB, ~$3.8/mo), viable because the image is **pre-built in CI** — the
+>   VM only pulls it and never compiles Caddy. If the container is OOM-killed
+>   under load, bump `vm_size` to `Standard_B1s` or `Standard_B2ts_v2` (1 GiB)
+>   in `terraform.tfvars`.
 > - **Buy a 1-year VM reservation or Azure Savings Plan** (~40% off compute) —
->   the biggest safe win. Purchased in the Azure portal, not via this Terraform.
-> - **Use a smaller VM** (e.g. `B1ls`). This only works because the image is now
->   **pre-built in CI** (see below) — the VM no longer compiles Caddy, so it
->   needs far less RAM. Set `vm_size` in `terraform.tfvars`.
+>   the biggest safe win on top of the smaller SKU. Purchased in the Azure
+>   portal, not via this Terraform.
 > - **Spot VM** is ~75% cheaper but can be evicted with 30s notice (downtime).
 
 ## Project Structure

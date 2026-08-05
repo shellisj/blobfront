@@ -52,8 +52,8 @@ Key components and how they fit together:
   Persists Let's Encrypt certs in the `caddy_data` volume; mounts `config.yaml` read-only;
   exposes 80/443.
 - **`terraform/`** — Azure IaC that provisions a single cheap Linux VM (Ubuntu 24.04,
-  `Standard_B1s` by default) plus networking/NSG. `cloud-init.yaml` installs Docker and clones
-  the repo to `/opt/blobfront`.
+  `Standard_B1ls` by default — 0.5 GiB, viable only because the image is prebuilt in CI) plus
+  networking/NSG. `cloud-init.yaml` installs Docker and clones the repo to `/opt/blobfront`.
 - **`.github/workflows/deploy.yml`** — CI/CD. On push to `main` touching the build inputs, a
   `build` job compiles the image once and pushes it to GHCR
   (`ghcr.io/<owner>/blobfront`), then a `deploy` job SSHes into the VM and runs `git pull` +
