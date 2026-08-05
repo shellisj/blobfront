@@ -11,9 +11,13 @@ variable "location" {
 }
 
 variable "vm_size" {
-  description = "VM size (B1s is cheapest)"
+  # B1ls (0.5 GiB RAM) is the cheapest burstable SKU and is viable now that the
+  # image is prebuilt in CI — the VM only pulls it, it never compiles Caddy. If
+  # the container is OOM-killed under load, bump to Standard_B1s (1 GiB) or the
+  # newer Standard_B2ts_v2 (1 GiB, cheaper than B1s). Set this in terraform.tfvars.
+  description = "VM size. B1ls (0.5 GiB) is cheapest; B1s/B2ts_v2 (1 GiB) are safer."
   type        = string
-  default     = "Standard_B1s"
+  default     = "Standard_B1ls"
 }
 
 variable "admin_username" {
